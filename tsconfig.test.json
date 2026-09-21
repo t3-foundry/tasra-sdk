@@ -1,0 +1,22 @@
+// Type-check the harness tree (test/, examples/) — NOT a build config.
+//
+// tsconfig.json exists to EMIT the published library, so its `include` is
+// ["src/**/*"] and the test tree is invisible to `tsc`. Lint doesn't cover the
+// gap either: typescript-eslint turns `no-undef` off for .ts files on the
+// grounds that the compiler catches it — which is only true where the compiler
+// looks. Net effect was that a change touching only test/ could leave an
+// identifier unbound and still pass `npm run typecheck && npm run lint`
+// (it did: the rule-salt fix shipped with `ruleSalt` unbound in four
+// files). `npm run typecheck` now runs this config too.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Harness files import each other with explicit `.ts` specifiers because
+    // they run under tsx, not from dist/.
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "test/**/*", "examples/**/*", "vitest.config.ts"],
+  "exclude": ["dist", "node_modules"]
+}

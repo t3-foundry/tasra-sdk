@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/t3-foundry/tasra-sdk/security/advisories/new
+    about: Report privately. Never open a public issue for a security problem.
+  - name: Question about using the SDK
+    url: https://github.com/t3-foundry/tasra-sdk/issues/new
+    about: Integration questions, "which client do I want", design help.

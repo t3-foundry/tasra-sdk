@@ -1,0 +1,33 @@
+name: Feature request
+description: Propose a capability or an API change
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to build that the SDK makes hard or impossible?
+    validations: {required: true}
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API
+      description: Sketch the call you wish existed.
+      render: typescript
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today
+      description: The workaround, if you have one — it tells us how much the gap costs.
+
+  - type: checkboxes
+    id: layer
+    attributes:
+      label: Which layer
+      options:
+        - label: The managed client (Client / Session)
+        - label: The composable primitives
+        - label: Chain reads/writes
+        - label: Credentials, DCQL or the committee path
+        - label: Agent skills or documentation

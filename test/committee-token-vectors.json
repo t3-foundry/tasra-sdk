@@ -1,0 +1,126 @@
+{
+  "_comment": "Compound-authorization conformance vectors — the shared truth table for per-request verifier-committee selection and the canonical token hash. The TypeScript implementation in src/committee/token.ts and the reference implementation MUST agree on every value; a divergence is a silent-authorization bug. Computed from the reference canonical encoding, so if that encoding changes BOTH sides move together. Refreshing this file is a manual step. There is no generator — a vector that agrees with only one side reads as coverage while being worse than none.",
+  "selection": [
+    {
+      "slot_id": "0xabababababababababababababababababababababababababababababababab",
+      "epoch": 1,
+      "seed": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "registry_size": 64,
+      "count": 5,
+      "indexes": [
+        28,
+        58,
+        60,
+        44,
+        16
+      ]
+    },
+    {
+      "slot_id": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "epoch": 2,
+      "seed": "0x0202020202020202020202020202020202020202020202020202020202020202",
+      "registry_size": 10,
+      "count": 7,
+      "indexes": [
+        4,
+        0,
+        8,
+        7,
+        5,
+        9,
+        3
+      ]
+    },
+    {
+      "slot_id": "0x0707070707070707070707070707070707070707070707070707070707070707",
+      "epoch": 3,
+      "seed": "0x0909090909090909090909090909090909090909090909090909090909090909",
+      "registry_size": 16,
+      "count": 16,
+      "indexes": [
+        3,
+        2,
+        0,
+        15,
+        10,
+        14,
+        6,
+        4,
+        13,
+        8,
+        7,
+        1,
+        11,
+        12,
+        9,
+        5
+      ]
+    },
+    {
+      "slot_id": "0x1111111111111111111111111111111111111111111111111111111111111111",
+      "epoch": 4,
+      "seed": "0x0505050505050505050505050505050505050505050505050505050505050505",
+      "registry_size": 32,
+      "count": 4,
+      "indexes": [
+        22,
+        8,
+        26,
+        17
+      ]
+    }
+  ],
+  "token": {
+    "token_type": "JWT",
+    "seed": "0x0101010101010101010101010101010101010101010101010101010101010101",
+    "epoch": 42,
+    "slot_id": "0x0202020202020202020202020202020202020202020202020202020202020202",
+    "vp_hash": "0x0303030303030303030303030303030303030303030303030303030303030303",
+    "holder_hash": "0x0505050505050505050505050505050505050505050505050505050505050505",
+    "rule_hash": "0x0404040404040404040404040404040404040404040404040404040404040404",
+    "verifier_indexes": [
+      1,
+      3,
+      4
+    ],
+    "iat": 1700000000,
+    "exp": 1700000060,
+    "signing_hash": "0x86aed850b4f187511507fa23db5b4844db802aae184d06900d10322dab7a28db"
+  },
+  "token_scoped": {
+    "token_type": "JWT",
+    "seed": "0x0101010101010101010101010101010101010101010101010101010101010101",
+    "epoch": 42,
+    "slot_id": "0x0202020202020202020202020202020202020202020202020202020202020202",
+    "vp_hash": "0x0303030303030303030303030303030303030303030303030303030303030303",
+    "holder_hash": "0x0505050505050505050505050505050505050505050505050505050505050505",
+    "rule_hash": "0x0404040404040404040404040404040404040404040404040404040404040404",
+    "identity_hash": "0x0606060606060606060606060606060606060606060606060606060606060606",
+    "verifier_indexes": [
+      1,
+      3,
+      4
+    ],
+    "iat": 1700000000,
+    "exp": 1700000060,
+    "signing_hash": "0xb70d01068acdb077ab97017484f8c146ae54f1886f7b72e89b80b3736b66fd80"
+  },
+  "op_attestation": {
+    "chain_id": 31337,
+    "op_id": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "slot_id": "0x0202020202020202020202020202020202020202020202020202020202020202",
+    "token_hash": "0x5a514855f1ba31766580ef9be19741becdb72c06dd113170421572cc205aef13",
+    "hash": "0x479c2304ebb24bc2077f00d79601017d618aed4661da7f6f36f3d78fb83d8be4"
+  },
+  "verifier_leaf": {
+    "index": 3,
+    "operator": "0xabababababababababababababababababababab",
+    "pubkey": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "leaf": "0xf52aa598bfc99bae15d732cfb279b90ad45437a93f3d3c631b5b36a64fca3962"
+  },
+  "client_binding": {
+    "slot_id": "0x0202020202020202020202020202020202020202020202020202020202020202",
+    "token_hash": "0x5a514855f1ba31766580ef9be19741becdb72c06dd113170421572cc205aef13",
+    "hash": "0xcda0af58823a24eeba46ded329e839480147091c74436b0778df4052cdedde1a"
+  }
+}

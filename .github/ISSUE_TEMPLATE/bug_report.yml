@@ -1,0 +1,73 @@
+name: Bug report
+description: Something in the SDK behaves incorrectly
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security issue?** Stop — report it privately instead:
+        https://github.com/t3-foundry/tasra-sdk/security/advisories/new
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations: {required: true}
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: >
+        The smallest code that shows the problem. Many issues turn out to be
+        infrastructure rather than SDK — if you can reproduce it against the
+        hermetic path (no fleet), say so, it narrows this down enormously.
+      render: typescript
+    validations: {required: true}
+
+  - type: input
+    id: version
+    attributes:
+      label: SDK version
+      placeholder: "0.1.0 — output of `npm ls tasra-sdk`"
+    validations: {required: true}
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      options: [Node, Browser (bundled), Both, Other]
+    validations: {required: true}
+
+  - type: input
+    id: runtime-version
+    attributes:
+      label: Runtime version and bundler
+      placeholder: "Node 22.3 / Vite 5 / Next 15"
+
+  - type: dropdown
+    id: entrypoint
+    attributes:
+      label: Which entry point
+      multiple: true
+      options:
+        - tasra-sdk (main)
+        - tasra-sdk/chain
+        - tasra-sdk/committee
+        - tasra-sdk/oid4vp
+        - tasra-sdk/verifier-agent
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Error output
+      description: Full error including the `TasraError` code, if there is one.
+      render: shell
+
+  - type: textarea
+    id: deployment
+    attributes:
+      label: Deployment
+      description: >
+        Local fleet, testnet, other? Chain id? **Never paste private keys,
+        credentials, admin secrets or JWTs** — redact them.

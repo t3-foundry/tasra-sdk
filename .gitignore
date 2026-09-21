@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+
+# Local editor and agent state. These carry absolute paths, host aliases and other
+# machine-specific settings — they must never reach a shared history.
+.idea/
+.claude/
+
+# vitest coverage reports
+coverage/
+
+# Private local development state and generated evidence
+.tasra/

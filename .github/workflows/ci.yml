@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  # Every branch, so work in progress gets checked before a PR exists.
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two things at once:
+#  - a newer push to the same branch makes the in-flight run obsolete, and
+#  - a branch with an open PR would otherwise get TWO runs per push (one `push`,
+#    one `pull_request`). Normalising to the branch NAME puts both in the same
+#    group — `github.ref` would not, since it is `refs/heads/x` for a push but
+#    `refs/pull/N/merge` for a PR — so the pull_request run supersedes the push one.
+concurrency:
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: node ${{ matrix.node }}
+    # ⚠⚠ A PULL REQUEST MUST NEVER RUN ON THE SELF-HOSTED RUNNER.
+    #
+    # This repository is public, so anyone can open a PR from a fork, and a PR can
+    # change any script this workflow runs. On a self-hosted runner that is arbitrary
+    # code execution as the runner's user — on a machine that also holds another
+    # organization's runner credentials and network keeper state. The workspace
+    # persists between runs, so a planted file outlives the job that wrote it.
+    #
+    # So: pull_request goes to a disposable GitHub-hosted runner. push and
+    # workflow_dispatch are refs only someone with write access can create, and they
+    # get the Mac Studio. See the notes at the bottom of this file.
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","mac-studio"]') }}
+    # A hung job occupies the ONLY runner indefinitely — on a GitHub-hosted runner
+    # the 6-hour default is harmless, here it blocks every later run.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      # One runner, so the matrix serialises regardless; stating it keeps the queue
+      # order predictable and stops three jobs contending for the same tool cache.
+      max-parallel: 1
+      matrix:
+        # 22.12 is the engines floor: Node 20 reached end-of-life on 2026-04-30,
+        # and 22.12 is the oldest supported release that can require() an ES
+        # module. 24 is Active LTS, 26 is Current. Keep the floor in sync with
+        # `engines.node` in package.json.
+        node: ['22.12', '24', '26']
+
+    steps:
+      # `clean: true` is the default and load-bearing here: a self-hosted workspace
+      # PERSISTS between runs, so without it a stale dist/ or node_modules/ can make
+      # a broken commit look green.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          clean: true
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # `prepare` builds dist/, so this also compiles the library.
+      - run: npm ci
+
+      # Verify the registry signatures of everything we just installed.
+      - run: npm audit signatures
+
+      - run: npm run lint
+
+      # Covers src/ AND the harness tree (test/, examples/) — the latter is
+      # invisible to the build config, and lint does not catch unbound
+      # identifiers in .ts files.
+      - run: npm run typecheck
+
+      - run: npm run build
+
+      # Hermetic suites only (vitest, test/specs/*.test.ts): crypto, assembly,
+      # DCQL, committee conformance, client/session (fleet mocked), chain
+      # decoding, and the error taxonomy. The e2e / reconcile / slashing /
+      # stress suites need a live fleet and stay out of CI.
+      - run: npm test
+
+      # Coverage on one Node version only — the numbers don't vary by runtime,
+      # and running it three times just burns minutes.
+      - run: npm run test:coverage
+        if: matrix.node == '24'
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: matrix.node == '24'
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 14
+
+      # publint + attw + a pack smoke test that installs the real tarball and
+      # resolves both subpaths. This is the only check that exercises the
+      # PUBLISHED artifact rather than src/.
+      - run: npm run verify:pkg
+
+  consumers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run verify:consumers
+
+# ── Notes on the self-hosted runner ──────────────────────────────────────────
+#
+# A push or a manual run lands on a Mac Studio (arm64) that ALSO hosts network
+# keepers and a second runner for another organization. Consequences worth knowing:
+#
+#  - The job shares CPU and memory with those. It touches no ports, no chain and no
+#    fleet state, so a clash is contention rather than corruption — but a long run
+#    here does slow whatever else the machine is doing.
+#  - GitHub `concurrency` groups are scoped to ONE repository, so they cannot
+#    serialise this against a job in another repo's runner. Nothing in this file
+#    can; the mitigation is the timeout above plus keeping this job short.
+#  - The matrix runs three Node versions sequentially on one runner, so wall-clock
+#    is roughly three times a hosted run.
+#  - `actions/setup-node` provisions Node into the runner's tool cache. The machine
+#    has no system Node, which is fine — the first run per version downloads it.
+#  - Enabling "Require approval for all external contributors" in the repository's
+#    Actions settings is worth doing anyway. It is defence in depth, not the control
+#    that makes this safe — the `runs-on` split above is.
+#
+# `release.yml` deliberately stays on a GitHub-hosted Linux runner. It publishes to
+# npm with provenance, and that attestation is only worth anything if the machine
+# that produced it is not one that also holds fleet state and runs another
+# organization's jobs.

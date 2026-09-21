@@ -1,0 +1,4 @@
+self-hosted-runner:
+  # The Mac Studio (arm64) runner registered to this organization. See the notes at
+  # the bottom of ci.yml for what running on it changes.
+  labels: [mac-studio]

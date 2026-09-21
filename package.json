@@ -1,0 +1,178 @@
+{
+  "name": "tasra-sdk",
+  "version": "0.1.0",
+  "description": "Product-agnostic TypeScript access gate to a Tasra Network: a managed client (sessions with auto-renewing JWTs + encrypt/decrypt/sign) over composable threshold-crypto primitives — shard fetch + MSK assembly, DCQL-gated JWTs, FROST/ECDSA signing, BLS encrypt/decrypt, committee tokens, and on-chain reads/writes.",
+  "private": false,
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "chain": [
+        "./dist/chain/index.d.ts"
+      ],
+      "committee": [
+        "./dist/committee/index.d.ts"
+      ],
+      "oid4vp": [
+        "./dist/oid4vp/index.d.ts"
+      ],
+      "verifier-agent": [
+        "./dist/verifier-agent/index.d.ts"
+      ],
+      "chain/node": [
+        "./dist/chain/node.d.ts"
+      ]
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./chain": {
+      "types": "./dist/chain/index.d.ts",
+      "import": "./dist/chain/index.js",
+      "default": "./dist/chain/index.js"
+    },
+    "./committee": {
+      "types": "./dist/committee/index.d.ts",
+      "import": "./dist/committee/index.js",
+      "default": "./dist/committee/index.js"
+    },
+    "./oid4vp": {
+      "types": "./dist/oid4vp/index.d.ts",
+      "import": "./dist/oid4vp/index.js",
+      "default": "./dist/oid4vp/index.js"
+    },
+    "./verifier-agent": {
+      "types": "./dist/verifier-agent/index.d.ts",
+      "import": "./dist/verifier-agent/index.js",
+      "default": "./dist/verifier-agent/index.js"
+    },
+    "./package.json": "./package.json",
+    "./chain/node": {
+      "types": "./dist/chain/node.d.ts",
+      "import": "./dist/chain/node.js",
+      "default": "./dist/chain/node.js"
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "skills",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "docs",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "examples"
+  ],
+  "scripts": {
+    "build": "npm run clean && tsc",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "example:getting-started": "tsx examples/getting-started.ts",
+    "example:minimal": "tsx examples/minimal.ts",
+    "example:ethers": "tsx examples/ethers-signer.ts",
+    "example:viem": "tsx examples/viem-account.ts",
+    "example:committee-slot": "tsx examples/committee-slot.ts",
+    "test:e2e": "tsx test/e2e/preflight.ts && tsx test/e2e/keys-public.ts && tsx test/e2e/encrypt-roundtrip.ts && tsx test/e2e/access-dcql.ts && tsx test/e2e/threshold-kofn.ts && tsx test/e2e/client-sovereign.ts",
+    "test:holder-binding": "tsx test/e2e/holder-binding.ts",
+    "test:slot-client": "tsx test/e2e/slot-client-verifier.ts",
+    "test:reconcile": "tsx test/reconcile/nodes.ts && tsx test/reconcile/slots.ts && tsx test/reconcile/sets.ts && tsx test/reconcile/tasra.ts && tsx test/reconcile/overview.ts",
+    "test:slashing": "tsx test/slashing/history.ts",
+    "test:destructive": "KK_DESTRUCTIVE=1 tsx test/slashing/node-slash-lifecycle.ts && KK_DESTRUCTIVE=1 tsx test/slashing/verifier-misissue-slash.ts && tsx test/slashing/governance-slash.ts",
+    "test:fleet": "npm run test:e2e && npm run test:reconcile && npm run test:slashing",
+    "test:prod": "tsx test/e2e/observability.ts && tsx test/e2e/credentials-prod.ts && tsx test/e2e/renewal-revocation.ts && tsx test/e2e/sign-roundtrip.ts && tsx test/e2e/decrypt-server.ts && tsx test/e2e/committee-authorize.ts && tsx test/e2e/audit-metering.ts && tsx test/e2e/slot-lifecycle.ts && tsx test/e2e/governance.ts && tsx test/economics/curve.ts",
+    "stress:crypto": "tsx test/stress/crypto-throughput.ts",
+    "stress:keyops": "tsx test/stress/keyops.ts",
+    "stress:keyops:committees": "tsx test/stress/keyops-committees.ts",
+    "stress": "npm run stress:crypto && npm run stress:keyops && npm run stress:keyops:committees",
+    "clean": "rm -rf dist",
+    "ci": "npm run lint && npm run typecheck && npm run build && npm run test:coverage && npm run verify:pkg",
+    "verify:pkg": "publint && attw --pack . --ignore-rules cjs-resolves-to-esm && tsx test/pack-smoke.ts",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run ci",
+    "verify:consumers": "tsx test/consumers.ts",
+    "test:acceptance": "tsx test/live/acceptance.ts",
+    "example:provision": "tsx examples/provision-slot.ts",
+    "example:personal-vault": "tsx examples/personal-vault.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/t3-foundry/tasra-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/t3-foundry/tasra-sdk/issues"
+  },
+  "homepage": "https://github.com/t3-foundry/tasra-sdk#readme",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@noble/ciphers": "^1.0.0",
+    "@noble/curves": "^1.6.0",
+    "@noble/hashes": "^1.5.0"
+  },
+  "peerDependencies": {
+    "viem": "^2.54.2"
+  },
+  "peerDependenciesMeta": {
+    "viem": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitest/coverage-v8": "^4.1.11",
+    "eslint": "^10.10.0",
+    "ethers": "^6.13.0",
+    "next": "^16.3.5",
+    "playwright": "^1.63.0",
+    "publint": "^0.3.24",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tsx": "^4.23.13",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.70.0",
+    "viem": "^2.56.8",
+    "vite": "^8.3.0",
+    "vitest": "^4.1.11",
+    "webpack": "^5.111.1"
+  },
+  "keywords": [
+    "keykeeper",
+    "threshold-cryptography",
+    "encryption",
+    "bls",
+    "credentials",
+    "dcql",
+    "access-control",
+    "revocation",
+    "frost",
+    "oid4vp",
+    "sd-jwt",
+    "bls12-381",
+    "ethereum",
+    "threshold-signatures",
+    "agent-skills",
+    "skills"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  }
+}

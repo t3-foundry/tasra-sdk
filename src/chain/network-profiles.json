@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "profiles": {
+    "local": {
+      "chainId": 43112,
+      "rpcUrl": "http://127.0.0.1:9650/ext/bc/C/rpc",
+      "nativeCurrency": {
+        "name": "Avalanche",
+        "symbol": "AVAX",
+        "decimals": 18
+      },
+      "eurc": {
+        "kind": "mock",
+        "address": null,
+        "name": "Tasra Mock Euro (test only)",
+        "symbol": "KKEUR",
+        "decimals": 6,
+        "faucet": true
+      },
+      "governance": {
+        "delaySecs": 120,
+        "floorSecs": 120
+      },
+      "productionPosture": true
+    },
+    "testnet": {
+      "chainId": 43113,
+      "rpcUrl": "https://api.avax-test.network/ext/bc/C/rpc",
+      "nativeCurrency": {
+        "name": "Avalanche",
+        "symbol": "AVAX",
+        "decimals": 18
+      },
+      "eurc": {
+        "kind": "mock",
+        "address": null,
+        "name": "Tasra Mock Euro (test only)",
+        "symbol": "KKEUR",
+        "decimals": 6,
+        "faucet": true
+      },
+      "governance": {
+        "delaySecs": 120,
+        "floorSecs": 120
+      },
+      "productionPosture": true
+    },
+    "mainnet": {
+      "chainId": 43114,
+      "rpcUrl": "https://api.avax.network/ext/bc/C/rpc",
+      "nativeCurrency": {
+        "name": "Avalanche",
+        "symbol": "AVAX",
+        "decimals": 18
+      },
+      "eurc": {
+        "kind": "circle",
+        "address": "0xc891eb4cbdeff6e073e859e987815ed1505c2acd",
+        "name": "Euro Coin",
+        "symbol": "EURC",
+        "decimals": 6,
+        "faucet": false
+      },
+      "governance": {
+        "delaySecs": 172800,
+        "floorSecs": 172800
+      },
+      "productionPosture": true
+    }
+  },
+  "sources": {
+    "eurc": "https://developers.circle.com/stablecoins/eurc-contract-addresses",
+    "verifiedAt": "2026-09-13"
+  }
+}

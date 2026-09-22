@@ -1,5 +1,6 @@
 import {networkNameForChain, resolveNetworkProfile, assertEurcFaucetAllowed} from './networks.js'
 import {SlotCommitmentExpiredError} from './commitmentRecovery.js'
+import {requestSlotSeed, type SlotSeed} from './slotSeed.js'
 // Client-side ON-CHAIN WRITE path: the client is a sovereign actor with its own
 // EVM account that signs its own transactions — no relayer/provisioner.
 //
@@ -145,6 +146,33 @@ export interface WriteClientWalletConfig extends WriteClientConfigBase {
 }
 
 export type WriteClientConfig = WriteClientKeyConfig | WriteClientWalletConfig
+
+/**
+ * Options for {@link TasraWriteClient.createSlotCommitReveal}.
+ *
+ * The ADR-0075 fields are all opt-OUT or overrides: the default is to try the accountant set for
+ * a per-commitment draw seed, and to fall back to the beacon-epoch wait when it cannot be had.
+ */
+export interface CommitRevealOptions {
+  /** Cap on the beacon-epoch wait, when the ADR-0075 fast path is unavailable. */
+  maxWaitMs?: number
+  /** Progress during that wait. Not called on the seeded path — there is no wait to report. */
+  onEpoch?: (cur: number, target: number) => void
+  /**
+   * `false` skips the ADR-0075 seed request and goes straight to the epoch wait.
+   *
+   * ⚠ Turn this off only to exercise the ADR-0030 path deliberately (a test, or a deployment
+   * whose accountants are known down). It is not a security control: both paths draw from a seed
+   * that post-dates the commitment, and neither lets the creator choose.
+   */
+  slotSeed?: boolean
+  /** Accountant base URLs for the seed request. Resolved from `NodeRegistry` when omitted. */
+  accountantUrls?: string[]
+  /** Per-accountant HTTP timeout for the seed request. */
+  slotSeedTimeoutMs?: number
+  /** The seed that was obtained, or `null` when the epoch wait is being used instead. */
+  onSeed?: (seed: SlotSeed | null) => void
+}
 
 export interface CreateSlotArgs {
   dcqlRule: string
@@ -510,8 +538,8 @@ export function createTasraWriteClient(cfg: WriteClientConfig): TasraWriteClient
    * book, or resolved from KeyRegistry.randomBeacon). `onEpoch` reports the wait progress.
    */
   async function createSlotCommitReveal(
-    args: CreateSlotArgs & {maxWaitMs?: number; onEpoch?: (cur: number, target: number) => void},
-  ): Promise<{slotId: Hex; commitTx: Hex; revealTx: Hex; targetEpoch: number; ruleSalt: Hex}> {
+    args: CreateSlotArgs & CommitRevealOptions,
+  ): Promise<{slotId: Hex; commitTx: Hex; revealTx: Hex; targetEpoch: number; ruleSalt: Hex; seeded: boolean}> {
     const maxWaitMs = args.maxWaitMs ?? 180_000
     if (!Number.isSafeInteger(maxWaitMs) || maxWaitMs < 1 || maxWaitMs > 2_147_483_647) throw new Error('Invalid commit-reveal wait')
     if (args.exportable) throw new Error('Commit-reveal does not support raw-export slots')
@@ -552,6 +580,48 @@ export function createTasraWriteClient(cfg: WriteClientConfig): TasraWriteClient
     // races the ~20s beacon). slotCommits → (targetEpoch, expiryEpoch, creator, used).
     const commit = (await pub.readContract({address: keyReg, abi: keyRegistryAbi, functionName: 'slotCommits', args: [commitment]})) as readonly [bigint, bigint, string, boolean]
     const targetEpoch = Number(commit[0])
+
+    // ADR-0075 FAST PATH: ask the accountant set to threshold-sign this commitment, and reveal
+    // immediately instead of waiting for `targetEpoch`.
+    //
+    // ⚠ Strictly an optimisation, and written so it can only ever cost time. Every way it can go
+    //   wrong — no accountant reachable, a KeyRegistry too old to have `commitSeedDigest`, a set
+    //   whose group key is not the beacon's — lands in the epoch wait below, which is what this
+    //   path did before it existed. The commitment is unchanged either way, so nothing is lost by
+    //   trying.
+    // ⚠ The seeded reveal draws a DIFFERENT committee than the epoch path would, because the seed
+    //   is different. That is the mechanism, not a side effect: both seeds post-date the
+    //   commitment, so both are ungrindable, and the creator does not get to pick which it gets.
+    let seed: SlotSeed | null = null
+    if (args.slotSeed !== false) {
+      try {
+        seed = await requestSlotSeed(
+          createTasraChainClient({rpcUrl: cfg.rpcUrl, addresses: cfg.addresses, chainId: chain.id}),
+          keyReg,
+          commitment,
+          {urls: args.accountantUrls, timeoutMs: args.slotSeedTimeoutMs},
+        )
+      } catch {
+        seed = null
+      }
+    }
+    args.onSeed?.(seed)
+    if (seed) {
+      try {
+        const seededTx = policy
+          ? await sendCall(keyReg, keyRegistryAbi, 'revealKeySlotWithSeedAndPolicy', [slotId, ruleCommitmentHash, args.k, args.n, mode, auth, salt, tags, seed.signature, policy], 'revealKeySlotWithSeedAndPolicy')
+          : await sendCall(keyReg, keyRegistryAbi, 'revealKeySlotWithSeed', [slotId, ruleCommitmentHash, args.k, args.n, mode, auth, salt, tags, seed.signature], 'revealKeySlotWithSeed')
+        await confirmed(pub, seededTx, 'revealKeySlotWithSeed')
+        return {slotId, commitTx, revealTx: seededTx, targetEpoch, ruleSalt, seeded: true}
+      } catch (e) {
+        // ⚠ Under a relay this MUST rethrow. The relay submitter owns the retries of the one
+        //   request it signed, and falling through would start a second signed request against the
+        //   same forwarder nonce — the defect that wedges every later write by this signer.
+        //   Without a relay, a reverted seeded reveal has spent gas and left the commitment
+        //   untouched, so the epoch wait below still completes the creation.
+        if (relay) throw e
+      }
+    }
 
     // Wait for the beacon to reach the target, then reveal — retrying across the
     // epoch boundary (EpochNotReached / BeaconSeedUnavailable can transiently fire
@@ -605,7 +675,7 @@ export function createTasraWriteClient(cfg: WriteClientConfig): TasraWriteClient
         await sleep(3000)
       }
     }
-    return {slotId, commitTx, revealTx, targetEpoch, ruleSalt}
+    return {slotId, commitTx, revealTx, targetEpoch, ruleSalt, seeded: false}
   }
 
   /** Prepay a slot's metered usage: approve TSRA then Settlement.fund(slot, amount). */
@@ -875,8 +945,8 @@ export interface TasraWriteClient {
    * there is more time in which to crash and lose the salt.
    */
   createSlotCommitReveal(
-    args: CreateSlotArgs & {maxWaitMs?: number; onEpoch?: (cur: number, target: number) => void},
-  ): Promise<{slotId: Hex; commitTx: Hex; revealTx: Hex; targetEpoch: number; ruleSalt: Hex}>
+    args: CreateSlotArgs & CommitRevealOptions,
+  ): Promise<{slotId: Hex; commitTx: Hex; revealTx: Hex; targetEpoch: number; ruleSalt: Hex; seeded: boolean}>
   fundSlot(slotId: Hex, amount: bigint): Promise<{approveTx: Hex; fundTx: Hex; relay?: RelayReceipt}>
   sendEth(to: Address, wei: bigint): Promise<Hex>
   transferTsra(to: Address, amount: bigint): Promise<Hex>

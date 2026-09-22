@@ -314,6 +314,25 @@ export const keyRegistryAbi = [
   },
   {
     "type": "function",
+    "name": "commitSeedDigest",
+    "inputs": [
+      {
+        "name": "commitment",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "computeCommitment",
     "inputs": [
       {
@@ -1163,6 +1182,134 @@ export const keyRegistryAbi = [
         "name": "requiredTags",
         "type": "bytes32[]",
         "internalType": "bytes32[]"
+      },
+      {
+        "name": "policy",
+        "type": "tuple",
+        "internalType": "struct KeyRegistry.RulePolicy",
+        "components": [
+          {
+            "name": "admin",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "guardian",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "timelock",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revealKeySlotWithSeed",
+    "inputs": [
+      {
+        "name": "slotId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "ruleCommitment",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "k",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "n",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "mode",
+        "type": "uint8",
+        "internalType": "enum KeyRegistry.Mode"
+      },
+      {
+        "name": "auth",
+        "type": "uint8",
+        "internalType": "enum KeyRegistry.AuthType"
+      },
+      {
+        "name": "salt",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requiredTags",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      },
+      {
+        "name": "seedSig",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revealKeySlotWithSeedAndPolicy",
+    "inputs": [
+      {
+        "name": "slotId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "ruleCommitment",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "k",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "n",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "mode",
+        "type": "uint8",
+        "internalType": "enum KeyRegistry.Mode"
+      },
+      {
+        "name": "auth",
+        "type": "uint8",
+        "internalType": "enum KeyRegistry.AuthType"
+      },
+      {
+        "name": "salt",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requiredTags",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      },
+      {
+        "name": "seedSig",
+        "type": "bytes",
+        "internalType": "bytes"
       },
       {
         "name": "policy",
@@ -2345,6 +2492,25 @@ export const keyRegistryAbi = [
   },
   {
     "type": "event",
+    "name": "SlotRevealedWithSeed",
+    "inputs": [
+      {
+        "name": "commitment",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "slotId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "TrustedForwarderSet",
     "inputs": [
       {
@@ -2424,6 +2590,11 @@ export const keyRegistryAbi = [
   {
     "type": "error",
     "name": "AlreadyVoted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BadSeedSignature",
     "inputs": []
   },
   {
@@ -2872,6 +3043,11 @@ export const keyRegistryAbi = [
         "internalType": "uint64"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "ThresholdKeyUnset",
+    "inputs": []
   },
   {
     "type": "error",

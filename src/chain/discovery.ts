@@ -136,3 +136,40 @@ export async function resolveSlotGroupKey(
   }
   return {publicKey: s.publicKey, epoch: Number(s.epoch), mode: Number(s.mode)}
 }
+
+/**
+ * The on-chain role tag accountant operators register under: `keccak256("accountant")`.
+ * The same tag the accountants themselves resolve their set with.
+ */
+export const ACCOUNTANT_TAG: `0x${string}` = keccak256(toHex('accountant'))
+
+/**
+ * Every active accountant's HTTP base URL, in registry order.
+ *
+ * Used to ask for an ADR-0075 slot seed. Any one of them can serve it — the seed is a threshold
+ * signature the whole set produces, so whichever accountant answers leads the round and the
+ * others verify. A caller therefore tries them in order and stops at the first success.
+ *
+ * ⚠ Read through `taggedActiveOperatorsPage`, NOT `activeOperators` + a `hasTag` fan-out. The
+ * paged getter walks the contract's compact PER-TAG set, so its cost tracks the number of
+ * accountants (single digits) rather than the operator population — ADR-0068's whole point. The
+ * verifier directory beside this one cannot use it, because its `index` must be the position in
+ * the global active list that the anchored snapshot's leaves are built from; nothing indexes into
+ * this list, so it is free to take the cheap route.
+ */
+export async function resolveAccountantUrls(chain: TasraChainClient): Promise<string[]> {
+  const PAGE = 256n
+  const urls: string[] = []
+  for (let offset = 0n; ; ) {
+    const [page, total] = (await chain.read('NodeRegistry', 'taggedActiveOperatorsPage', [
+      ACCOUNTANT_TAG,
+      offset,
+      PAGE,
+    ])) as [readonly {url: string}[], bigint]
+    if (!page.length) break
+    offset += BigInt(page.length)
+    for (const v of page) if (v.url) urls.push(v.url)
+    if (offset >= total) break
+  }
+  return urls
+}

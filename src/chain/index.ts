@@ -67,6 +67,7 @@ export {truncateHex, formatUnits, formatBps, formatWad} from './format.js'
 export {createTasraWriteClient, generateClientKey, ruleCommitment, verifyRuleCommitment} from './write.js'
 export type {
   CreateSlotArgs,
+  CommitRevealOptions,
   RelayConfig,
   RelayReceipt,
   TasraWriteClient,
@@ -81,11 +82,19 @@ export type {
 // directory, and the slot's group key straight from the registry.
 export {
   VERIFIER_TAG,
+  ACCOUNTANT_TAG,
   resolveSlotKeeperUrls,
   resolveVerifierDirectory,
   resolveSlotGroupKey,
+  resolveAccountantUrls,
 } from './discovery.js'
 export type {SlotGroupKey} from './discovery.js'
+
+// ADR-0075: the per-commitment draw seed. `createSlotCommitReveal` uses this internally; it is
+// exported for a caller that drives commit and reveal itself (the CLI does) or wants to inspect
+// what the accountant set answered before spending gas.
+export {requestSlotSeed} from './slotSeed.js'
+export type {SlotSeed, SlotSeedOptions} from './slotSeed.js'
 
 // The few-lines committee surface, driven by just a slot id: discovers the
 // keeper node + verifier set from chain, then sign / encrypt / decrypt.

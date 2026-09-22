@@ -115,14 +115,45 @@ async function verifiedReceipt(chain: TasraChainClient, attempt: RelayAttempt, h
   return {id: attempt.id, txHash: hash, gasUsed: Number(receipt.gasUsed), costWei: (receipt.gasUsed * receipt.effectiveGasPrice).toString()}
 }
 
-async function reconcile(chain: TasraChainClient, attempt: RelayAttempt, budget: Scope): Promise<{receipt?: RelayReceipt; expired: boolean}> {
+/**
+ * The outcome of reconciling one signed attempt against the chain.
+ *
+ * ⚠⚠ THREE OUTCOMES, NOT TWO, AND THE THIRD IS THE ONE THAT MATTERS OPERATIONALLY.
+ *  - `receipt`      — it executed; here is the proof.
+ *  - `expired`      — it never executed and never can (its deadline passed with the nonce still
+ *                     free), so the same operation is safe to sign again.
+ *  - `unresolvable` — its nonce HAS been consumed, so this request can never execute again
+ *                     whatever took it, but the window in which that happened is now further back
+ *                     than the log scan can reach. TERMINAL, outcome unknown.
+ *
+ * Collapsing `unresolvable` into "unknown, try again later" is what wedged a live deployment: a
+ * caller that blocks until an attempt resolves blocks FOREVER, because every new block moves the
+ * attempt further out of scan range. It is not a transient condition and retrying cannot fix it.
+ *
+ * ⚠ `unresolvable` is NOT a statement that the operation did not happen — it very probably did.
+ * A caller must not blindly redo the work; it must re-read the state the operation would have
+ * changed, or surface the attempt for a human. Conflating it with `expired` would turn one
+ * uncertain write into a duplicated one.
+ */
+export interface RelayReconciliation {
+  receipt?: RelayReceipt
+  expired: boolean
+  unresolvable?: boolean
+}
+
+async function reconcile(chain: TasraChainClient, attempt: RelayAttempt, budget: Scope): Promise<RelayReconciliation> {
   if (await budget.run(() => chain.client.getChainId()) !== attempt.chainId || hashTypedData(typed(attempt)) !== attempt.id) throw new Error('Relay reconciliation domain or request mismatch')
   const head = await budget.run(() => chain.client.getBlock({blockTag: 'latest'}))
   const nonce = await budget.run(() => chain.client.readContract({address: attempt.forwarder, abi: relayForwarderAbi, functionName: 'nonces', args: [attempt.request.from], blockNumber: head.number}))
   if (nonce < BigInt(attempt.request.nonce)) throw new RelayOutcomeUnknownError(attempt, 'Forwarder nonce moved backwards')
   if (nonce > BigInt(attempt.request.nonce)) {
     const start = BigInt(attempt.fromBlock)
-    if (start < 0n || head.number - start > 10_000n) throw new RelayOutcomeUnknownError(attempt, 'Reconciliation exceeds the 10,000-block scan bound')
+    // ⚠⚠ OUT OF RANGE IS TERMINAL, NOT TRANSIENT. The nonce is already consumed, so this exact
+    //    request can never execute again whatever took it — the forwarder rejects a spent nonce.
+    //    All that is lost is WHICH request consumed it, and no amount of waiting recovers that:
+    //    every new block moves `start` further outside the window. Throwing here made callers
+    //    retry forever and permanently wedged a deployment's entire write path.
+    if (start < 0n || head.number - start > 10_000n) return {expired: false, unresolvable: true}
     for (let from = start; from <= head.number; from += 2_000n) {
       const logs = await budget.run(() => chain.client.getLogs({address: attempt.forwarder,
         event: relayForwarderAbi[2], args: {signer: attempt.request.from}, fromBlock: from,
@@ -139,7 +170,7 @@ async function reconcile(chain: TasraChainClient, attempt: RelayAttempt, budget:
 }
 
 /** Recover from a lost HTTP response or process restart using the trusted RPC, without broadcasting. */
-export async function reconcileRelayAttempt(chain: TasraChainClient, attempt: RelayAttempt, timeoutMs = 30_000): Promise<{receipt?: RelayReceipt; expired: boolean}> {
+export async function reconcileRelayAttempt(chain: TasraChainClient, attempt: RelayAttempt, timeoutMs = 30_000): Promise<RelayReconciliation> {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000) throw new Error('Invalid reconciliation timeout')
   const budget = scope(timeoutMs)
   try { return await reconcile(chain, attempt, budget) } finally { budget.close() }
@@ -181,7 +212,13 @@ export function createRegisteredRelaySubmitter(chain: TasraChainClient, config: 
             previousAttempt.request.data.toLowerCase() !== data.toLowerCase()) throw new Error('Persisted relay operation does not match this request')
         const result = await reconcile(chain, previousAttempt, budget)
         if (result.receipt) return result.receipt
-        if (!result.expired) { pending = previousAttempt; throw new RelayOutcomeUnknownError(previousAttempt) }
+        // ⚠⚠ `unresolvable` must NOT resume and must NOT block. Its nonce is spent, so replaying
+        //    the stored attempt is guaranteed to be rejected; but blocking on it never clears
+        //    either, because the scan window only recedes. Fall through and sign a FRESH request
+        //    at the current nonce — the caller was told (via the journal) that the old one is
+        //    terminal-with-unknown-outcome and is responsible for not redoing work that landed.
+        if (result.unresolvable) pending = undefined
+        else if (!result.expired) { pending = previousAttempt; throw new RelayOutcomeUnknownError(previousAttempt) }
       }
       const fromBlock = await budget.run(() => chain.client.getBlockNumber({cacheTime: 0}))
       const nonce = await budget.run(() => chain.client.readContract({address: cfg.forwarder, abi: relayForwarderAbi, functionName: 'nonces', args: [from]}))
@@ -255,7 +292,9 @@ export function createRegisteredRelaySubmitter(chain: TasraChainClient, config: 
       if (!pending) return undefined
       const current = pending
       const result = await reconcileRelayAttempt(chain, current)
-      if (pending === current && (result.receipt || result.expired)) pending = undefined
+      // `unresolvable` frees the signer too: the nonce is spent, so holding the slot blocks
+      // every future write for an attempt that can never complete.
+      if (pending === current && (result.receipt || result.expired || result.unresolvable)) pending = undefined
       return result
     },
   }

@@ -127,7 +127,7 @@ export {SERVICE_MANIFEST_PATH, SERVICE_IDENTITY_PATH, SERVICE_MANIFEST_MAX_BYTES
 export type {ServiceManifest, ServiceChallenge, ServiceDiscoveryTransport, AuthenticatedService} from './serviceIdentity.js'
 
 export {createRegisteredRelaySubmitter, reconcileRelayAttempt, RelayOutcomeUnknownError} from './registeredRelay.js'
-export type {RegisteredRelayConfig, RelayTransport, RelayAttempt, RelayIntent} from './registeredRelay.js'
+export type {RegisteredRelayConfig, RelayTransport, RelayAttempt, RelayIntent, RelayReconciliation} from './registeredRelay.js'
 
 export {createRegisteredAgentClient, AgentSessionCreationUnknownError} from './registeredAgent.js'
 export type {AgentTransport, ApprovedAgentProfile, RegisteredAgentSession} from './registeredAgent.js'

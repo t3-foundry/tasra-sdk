@@ -7,6 +7,16 @@ never does.
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-09-22
+
+### Fixed
+
+- Treat relay attempts with a consumed nonce outside the 10,000-block reconciliation
+  window as terminal (`unresolvable`) and release the pending signer lock instead of
+  retrying forever. Export the `RelayReconciliation` result type from `tasra-sdk/chain`.
+  An unresolvable outcome does not prove that the operation failed; callers must check
+  the resulting chain state before repeating the operation.
+
 ## [0.2.0] — 2026-09-22
 
 ### Added

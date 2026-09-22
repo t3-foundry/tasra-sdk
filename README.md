@@ -6,7 +6,7 @@ Use Tasra to protect application data, authorize access with verifiable credenti
 and sign through a distributed keeper network. Tasra is the platform; Keykeeper is
 its threshold key-management implementation.
 
-> **Version 0.1.0 — initial release.** Minor releases may change APIs; patches do not.
+> **Version 0.2.0.** Minor releases may change APIs; patches do not.
 
 ## Install
 

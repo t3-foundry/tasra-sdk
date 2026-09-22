@@ -1,6 +1,6 @@
 {
   "name": "tasra-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Product-agnostic TypeScript access gate to a Tasra Network: a managed client (sessions with auto-renewing JWTs + encrypt/decrypt/sign) over composable threshold-crypto primitives — shard fetch + MSK assembly, DCQL-gated JWTs, FROST/ECDSA signing, BLS encrypt/decrypt, committee tokens, and on-chain reads/writes.",
   "private": false,
   "type": "module",

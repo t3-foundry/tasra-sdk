@@ -79,10 +79,9 @@ if (eligible.length < n) throw new Error(`${eligible.length} eligible keepers; n
 const oneShot = !(await chain.readers.keyRegistry.requiresCommitReveal())
 const {slotId, txHash, ruleSalt} = oneShot
   ? await writer.createSlot({dcqlRule, k, n, mode: 'bls'})
-  // Commits the parameters, waits for the beacon to pass the commit epoch, then reveals: the
-  // committee is drawn from a seed that did not exist when you committed. Takes an epoch, so pass
-  // onEpoch to report progress. It returns commitTx and revealTx in place of txHash.
-  // onEpoch receives NUMBERS, not bigints.
+  // Commits the parameters, then asks the accountants for a seed to reveal immediately.
+  // Falls back to the beacon-epoch wait when no usable seed is available; onEpoch reports
+  // that wait with NUMBERS, not bigints. Returns commitTx, revealTx, and seeded instead of txHash.
   : await writer.createSlotCommitReveal({dcqlRule, k, n, mode: 'bls', onEpoch: (cur, target) => console.log(`epoch ${cur}/${target}`)})
 // slotId and ruleSalt are 0x-hex strings.
 
@@ -424,6 +423,12 @@ EIP-155 signature; a wrong one means the RPC node (not the keeper) rejects every
 write, with no useful message. Always pass it.
 
 ## Other write-client methods
+
+`createSlotCommitReveal` accepts `slotSeed: false` to use the beacon-epoch path,
+`accountantUrls` to override accountant discovery, `slotSeedTimeoutMs` for each
+accountant request, and `onSeed` to observe the seed response (or `null` for fallback).
+Its `seeded` result indicates whether the seeded reveal succeeded. A failed seeded
+reveal through a relay propagates the error, leaving retries to the relay submitter.
 
 `createSlotCommitReveal` (two-phase creation — the only one a registry with
 `requireCommitReveal` accepts; see step 3), `fundSlot`, `rotateKey`,

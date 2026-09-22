@@ -532,10 +532,10 @@ export function createTasraWriteClient(cfg: WriteClientConfig): TasraWriteClient
 
   /**
    * Grinding-resistant slot creation — the production default:
-   * commit the params, wait for the beacon to advance past the commit epoch
-   * (so the committee draw uses a seed that didn't exist at commit time), then
-   * reveal+create. Needs a live beacon (ThresholdRandomBeacon address in the
-   * book, or resolved from KeyRegistry.randomBeacon). `onEpoch` reports the wait progress.
+   * commit the params, request an accountant seed, then reveal+create. Falls back
+   * to the beacon-epoch wait when a usable seed is unavailable. Needs a beacon
+   * (ThresholdRandomBeacon address in the book, or resolved from KeyRegistry.randomBeacon).
+   * `onEpoch` reports fallback wait progress; `seeded` identifies the completed path.
    */
   async function createSlotCommitReveal(
     args: CreateSlotArgs & CommitRevealOptions,
@@ -938,11 +938,12 @@ export interface TasraWriteClient {
   createSlot(args: CreateSlotArgs): Promise<{slotId: Hex; txHash: Hex; ruleSalt: Hex; relay?: RelayReceipt}>
   /**
    * Create a key slot through commit/reveal, so the committee is drawn from a seed that
-   * did not exist when the parameters were committed. Takes an epoch to complete.
+   * did not exist when the parameters were committed. Tries an accountant seed
+   * first and falls back to waiting for a beacon epoch when unavailable.
    *
    * ⚠⚠ The same durability requirement as {@link TasraWriteClient.createSlot}: persist
-   * `slotId` and `ruleSalt` before anything else. This path waits on the beacon, so
-   * there is more time in which to crash and lose the salt.
+   * `slotId` and `ruleSalt` before anything else. The fallback can wait on the beacon,
+   * increasing the time in which a crash could lose the salt.
    */
   createSlotCommitReveal(
     args: CreateSlotArgs & CommitRevealOptions,

@@ -39,6 +39,26 @@ loaded when you need it):
   let the keeper validate against a statically-configured set).
 - **Format helpers** — `truncateHex`, `formatUnits`, `formatBps`, `formatWad`.
 
+## Commit/reveal slot creation
+
+`writer.createSlotCommitReveal(args)` commits the slot parameters, then requests a
+per-commitment seed from the accountant set. Compatible deployments can reveal the
+slot immediately with that seed. If a seed is unavailable or the registry does not
+support it, the client falls back to waiting for the beacon epoch before revealing.
+
+The options in `CommitRevealOptions` let you set `accountantUrls`, bound each request
+with `slotSeedTimeoutMs`, observe the seed request with `onSeed`, or use
+`slotSeed: false` to select the epoch path. `onEpoch` reports only the fallback wait;
+`maxWaitMs` bounds that wait. The result includes `seeded`, which reports whether the
+seeded reveal succeeded, alongside `slotId`, `ruleSalt`, `commitTx`, `revealTx`, and
+`targetEpoch`.
+
+For a custom commit/reveal flow, use `resolveAccountantUrls(chain)` and
+`requestSlotSeed(chain, keyRegistry, commitment, options)`. Seed responses are checked
+against the registry's commitment digest; the contract verifies the signature during
+reveal. A failed seeded reveal through a relay is returned to the caller rather than
+starting another signed request with the same forwarder nonce.
+
 ## Slot-driven committee flow (no hardcoded endpoints)
 
 The committee path derives its keeper node and verifier set from the slot id and accepts

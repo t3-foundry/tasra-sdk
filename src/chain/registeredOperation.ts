@@ -98,7 +98,30 @@ export function assertRegisteredWalletRequest(session: RegisteredVerifierAgentSe
     registrySize: integer('registry_size'), committee: integer('committee_count'), quorum: integer('quorum'), operationExp: op.exp})
   if (claims.nonce !== expected || binding.nonce !== expected) throw new Error('Wallet nonce does not bind the opened operation')
   if (!Number.isSafeInteger(claims.exp) || Number(claims.exp) > op.exp || Number(claims.exp) < Math.floor(Date.now() / 1000)) throw new Error('Wallet request expiry exceeds its authorization')
-  if (!Array.isArray(claims.transaction_data) || claims.transaction_data.length !== 1) throw new Error('Wallet request has no unique transaction data')
-  const td = decodeJson<Record<string, unknown>>(claims.transaction_data[0]!)
-  if (td.type !== 'keykeeper-op/v1' || ['chain_id', 'slot_id', 'action', 'payload_digest', 'description'].some(k => td[k] !== op[k as keyof PresentationOperation])) throw new Error('Wallet transaction data differs from the creator authorization')
+  // ⚠⚠ VERIFY WHEN PRESENT — DO NOT REQUIRE. Requiring it made this wallet the only one that
+  //    could complete a presentation: a JAR carrying `transaction_data` is silently dropped by
+  //    Hovi (it fetches the Request Object, shows it, and never POSTs a response), so a
+  //    deployment had to choose ONE wallet. The verifier already takes this position —
+  //    `[committee] require_transaction_data` defaults to false and is deliberately NOT forced
+  //    by production posture — and the certified fleet configuration composes JARs without it.
+  //
+  //    What the operation is still bound by when the entry is absent: `request_hash` is
+  //    keccak256(domain ‖ chain_id ‖ slot_id ‖ action ‖ payload_digest), and the nonce check
+  //    above proves this JAR was composed for exactly that request hash and `op.exp`. So four
+  //    of the five fields compared below are already bound, twice over — the equality check
+  //    against `binding.operation` near the top of this function is the other.
+  //
+  //    ⚠ What is NOT bound without it: `description`, the human-readable string the holder is
+  //      shown. Nothing else. A deployment that needs the holder's displayed text to be
+  //      cryptographically tied to the creator's authorization must set
+  //      `[committee] transaction_data = true` AND accept that only wallets which understand
+  //      the entry can be used.
+  //
+  //    When the entry IS present the checks below are unchanged and still strict: exactly one
+  //    entry, the right type, and every field equal to the authorized operation.
+  if (claims.transaction_data !== undefined) {
+    if (!Array.isArray(claims.transaction_data) || claims.transaction_data.length !== 1) throw new Error('Wallet request has no unique transaction data')
+    const td = decodeJson<Record<string, unknown>>(claims.transaction_data[0]!)
+    if (td.type !== 'keykeeper-op/v1' || ['chain_id', 'slot_id', 'action', 'payload_digest', 'description'].some(k => td[k] !== op[k as keyof PresentationOperation])) throw new Error('Wallet transaction data differs from the creator authorization')
+  }
 }

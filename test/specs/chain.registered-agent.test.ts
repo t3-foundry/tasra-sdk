@@ -158,3 +158,52 @@ it('refuses substituted wallet operation, nonce, audience and disclosure endpoin
   }
   expect(() => assertRegisteredWalletRequest(session, ro, {...status, bindingPreimage: {...status.bindingPreimage, operation: {...session.operation, action: 'decrypt'}}})).toThrow(/operation/)
 })
+
+// ⚠⚠ A JAR WITHOUT `transaction_data` IS VALID. Requiring it made the Tasra Vault the only
+//    wallet that could complete a presentation on any fleet, because Hovi silently never POSTs
+//    a response when the entry is present — so one QR could serve one wallet, never both.
+//    These pin the exact envelope: absent is accepted, present is still checked strictly, and
+//    nothing that was bound before became unbound.
+it('accepts a Request Object with no transaction_data, and still binds the operation', async () => {
+  const h = harness(), session = await openRegisteredVerifierAgentSession(h.client, input())
+  const random = new Uint8Array(32).fill(1), snapshotRoot = new Uint8Array(32).fill(2)
+  const nonce = derivedNonce(session.requestHash, random, {epoch: 1, snapshotRoot, registrySize: 3, committee: 3, quorum: 2, operationExp: session.operation.exp})
+  const base = {jwt: 'already-verified', header: {alg: 'EdDSA'}, signerDid: session.profile.clientId.replace('decentralized_identifier:', ''), signerKey: {kty: 'OKP', crv: 'Ed25519', x: ''}, claims: {
+    iss: session.profile.clientId.replace('decentralized_identifier:', ''), client_id: session.profile.clientId,
+    response_mode: 'direct_post.jwt', response_uri: session.profile.endpoint + '/v1/response?session=' + session.sessionId, nonce, state: 'state', exp: session.operation.exp,
+    dcql_query: {credentials: []},
+  }} as VerifiedRequestObject
+  const status = {status: 'pending' as const, phase: 'awaiting_wallet' as const, bindingPreimage: {operation: session.operation, random: bytesToHex(random), snapshot_root: bytesToHex(snapshotRoot), epoch: 1, registry_size: 3, committee_count: 3, quorum: 2, nonce}}
+
+  // The Hovi-compatible JAR. This threw 'Wallet request has no unique transaction data'.
+  expect(() => assertRegisteredWalletRequest(session, base, status)).not.toThrow()
+
+  // ⚠ What survives the relaxation: request_hash covers chain_id, slot_id, action and
+  //   payload_digest, and the nonce is derived from it — so a substituted operation is still
+  //   refused with no transaction_data anywhere in the request.
+  expect(() => assertRegisteredWalletRequest(session, base, {...status, bindingPreimage: {...status.bindingPreimage, operation: {...session.operation, action: 'decrypt'}}})).toThrow(/operation/)
+  expect(() => assertRegisteredWalletRequest(session, {...base, claims: {...base.claims, nonce: 'different'}}, status)).toThrow(/nonce/)
+})
+
+it('still checks transaction_data strictly whenever the Request Object carries it', async () => {
+  const h = harness(), session = await openRegisteredVerifierAgentSession(h.client, input())
+  const random = new Uint8Array(32).fill(1), snapshotRoot = new Uint8Array(32).fill(2)
+  const nonce = derivedNonce(session.requestHash, random, {epoch: 1, snapshotRoot, registrySize: 3, committee: 3, quorum: 2, operationExp: session.operation.exp})
+  const td = {...session.operation, type: 'keykeeper-op/v1', credential_ids: ['licence']}
+  const encode = (v: unknown) => Buffer.from(JSON.stringify(v)).toString('base64url')
+  const withTd = (transaction_data: string[]) => ({jwt: 'already-verified', header: {alg: 'EdDSA'}, signerDid: session.profile.clientId.replace('decentralized_identifier:', ''), signerKey: {kty: 'OKP', crv: 'Ed25519', x: ''}, claims: {
+    iss: session.profile.clientId.replace('decentralized_identifier:', ''), client_id: session.profile.clientId,
+    response_mode: 'direct_post.jwt', response_uri: session.profile.endpoint + '/v1/response?session=' + session.sessionId, nonce, state: 'state', exp: session.operation.exp,
+    dcql_query: {credentials: []}, transaction_data,
+  }} as VerifiedRequestObject)
+  const status = {status: 'pending' as const, phase: 'awaiting_wallet' as const, bindingPreimage: {operation: session.operation, random: bytesToHex(random), snapshot_root: bytesToHex(snapshotRoot), epoch: 1, registry_size: 3, committee_count: 3, quorum: 2, nonce}}
+
+  expect(() => assertRegisteredWalletRequest(session, withTd([encode(td)]), status)).not.toThrow()
+  // A description the creator never authorized is still refused — that is the whole point of
+  // the entry, and it is the one field the nonce does NOT bind.
+  expect(() => assertRegisteredWalletRequest(session, withTd([encode({...td, description: 'Different authorization'})]), status)).toThrow()
+  expect(() => assertRegisteredWalletRequest(session, withTd([encode({...td, type: 'other/v1'})]), status)).toThrow()
+  // Two entries are ambiguous about what was authorized, so they stay refused.
+  expect(() => assertRegisteredWalletRequest(session, withTd([encode(td), encode(td)]), status)).toThrow(/unique transaction data/)
+  expect(() => assertRegisteredWalletRequest(session, withTd([]), status)).toThrow(/unique transaction data/)
+})

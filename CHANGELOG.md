@@ -7,6 +7,15 @@ never does.
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-09-23
+
+### Fixed
+
+- Accept registered wallet Request Objects without `transaction_data`, while
+  preserving operation and nonce binding checks. When `transaction_data` is present,
+  continue to require exactly one entry matching the authorized operation, including
+  its description.
+
 ## [0.2.1] — 2026-09-22
 
 ### Fixed

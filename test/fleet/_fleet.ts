@@ -130,17 +130,19 @@ export const chainEnvPath =
  */
 export function hydrateFleetEnv(): void {
   if (!existsSync(chainEnvPath)) return
-  // chain.env's own names feed `addressBookFromEnv`; the aliases feed the TASRA_* reads below.
-  const alias: Record<string, string> = {
+  // chain.env's own names feed `addressBookFromEnv` directly. For the config's TASRA_* reads the
+  // rule is a PREFIX -- `JWT_SIGNING_KEY` is `TASRA_JWT_SIGNING_KEY`, and so on -- with only
+  // these four genuine renames.
+  //
+  // ⚠⚠ A HAND-LISTED MAP WAS TRIED FIRST AND WAS INCOMPLETE TWICE. It shipped without
+  // JWT_SIGNING_KEY, and three checks then failed on "no JWT issuer seed" -- a key nobody
+  // noticed missing until the code that needed it ran. Enumerating the keys that happen to be
+  // used today cannot cover the one added tomorrow; deriving the name does.
+  const RENAMED: Record<string, string> = {
     DEMO_SLOT_ID: 'TASRA_SLOT_ID',
-    GOVERNANCE_SLOT_ID: 'TASRA_GOVERNANCE_SLOT_ID',
-    CHAIN_RPC: 'TASRA_RPC_URL',
-    CHAIN_ID: 'TASRA_CHAIN_ID',
     DEMO_RULE_SALT: 'TASRA_RULE_SALT',
+    CHAIN_RPC: 'TASRA_RPC_URL',
     GOVERNANCE_DCQL_RULE: 'TASRA_GOVERNANCE_RULE',
-    GOVERNANCE_RULE_SALT: 'TASRA_GOVERNANCE_RULE_SALT',
-    DEPLOY_PK: 'TASRA_DEPLOY_PK',
-    DEPLOY_ADDR: 'TASRA_DEPLOY_ADDR',
   }
   for (const line of readFileSync(chainEnvPath, 'utf8').split(/\r?\n/)) {
     const t = line.trim()
@@ -151,8 +153,9 @@ export function hydrateFleetEnv(): void {
     let v = t.slice(eq + 1).trim()
     if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1)
     if (!CALLER_ENV.has(k)) process.env[k] = v
-    const a = alias[k]
-    if (a && !CALLER_ENV.has(a)) process.env[a] = v
+    // Already TASRA_-prefixed keys (TASRA_VAULT_*) must not become TASRA_TASRA_*.
+    const aliased = RENAMED[k] ?? (k.startsWith('TASRA_') ? k : `TASRA_${k}`)
+    if (aliased !== k && !CALLER_ENV.has(aliased)) process.env[aliased] = v
   }
 }
 

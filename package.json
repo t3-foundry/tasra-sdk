@@ -104,7 +104,11 @@
     "verify:consumers": "tsx test/consumers.ts",
     "test:acceptance": "tsx test/live/acceptance.ts",
     "example:provision": "tsx examples/provision-slot.ts",
-    "example:personal-vault": "tsx examples/personal-vault.ts"
+    "example:personal-vault": "tsx examples/personal-vault.ts",
+    "verify:all": "tsx test/verify/run.ts",
+    "verify:bootstrap": "tsx test/verify/bootstrap.ts",
+    "stress:slots:onchain": "tsx test/stress/create-slots-onchain.ts",
+    "stress:slots:onchain:parallel": "tsx test/stress/create-slots-onchain-parallel.ts"
   },
   "repository": {
     "type": "git",

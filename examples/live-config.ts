@@ -10,7 +10,7 @@ import {ed25519ClientSigner, holderProofPerVerifier} from 'tasra-sdk/committee'
 
 export function required(name: string, env: NodeJS.ProcessEnv = process.env): string {
   const value = env[name]?.trim()
-  if (!value) throw new Error(`Missing ${name}. See docs/prerequisites.md; public testnet handoff awaits tasra-releases.`)
+  if (!value) throw new Error(`Missing ${name}. See docs/prerequisites.md and https://github.com/t3-foundry/tasra-releases for Fuji deployment records.`)
   return value
 }
 

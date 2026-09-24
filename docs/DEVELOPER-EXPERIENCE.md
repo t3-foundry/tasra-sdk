@@ -1,8 +1,12 @@
 # Developer experience: a live deployment + the released CLI + this SDK
 
-**Public testnet handoff: not yet published.** Its canonical release records will
-be published in `tasra-releases`. Do not infer live endpoints from fixtures or network
-profiles. Until then, live acceptance remains pending.
+**Fuji deployment records are published** in
+[tasra-releases](https://github.com/t3-foundry/tasra-releases):
+`networks/testnet/current.json` points to `deployments/tasra-fuji-v1.json` and its
+checksum. Pin both to the same reviewed repository commit; see
+[prerequisites](prerequisites.md). The record includes public service URLs.
+Live acceptance still requires actual credentials, provisioned slots and separate
+baseline/revocation evidence; the manifest alone does not establish those outcomes.
 
 The developer journey uses a live deployment, the separately released `tasra-cli`, and
 the published SDK. No sandbox broker, synthetic network, test issuer or locally
@@ -61,9 +65,10 @@ UI is not acceptance of network behaviour.
 
 The SDK and the CLI are self-service; three things are not, and they gate steps 3–6:
 
-- **The deployment manifest** — contract addresses, RPC, verifier and verifier-agent
-  endpoints, and the chain id, with the SHA-256 to pin it against. The SDK reads it
-  through `parsePinnedNetworkManifest`.
+- **The deployment configuration** — use the published manifest and pointer for
+  contract addresses, chain ID, service URLs and SHA-256. The SDK reads it through
+  `parsePinnedNetworkManifest`. Select an RPC for that chain and discover the slot's
+  keeper/verifier endpoints on-chain; ask the operator for any missing configuration.
 - **The first credential.** Issuing one needs issuer access, so the operator either
   issues it to your holder DID or enrolls you as an issuer. Everything after that —
   presenting, renewing, revoking — is yours.

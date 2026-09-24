@@ -2,14 +2,27 @@
 
 ## Public testnet status
 
-The canonical deployment records will be published in **`tasra-releases`**. They
-are not published yet. Public-testnet onboarding and live release acceptance are
-pending; no URL or checksum in this SDK is a substitute for that handoff.
+Canonical deployment records are published in
+[t3-foundry/tasra-releases](https://github.com/t3-foundry/tasra-releases).
+Avalanche Fuji uses chain ID **43113**. Start with
+[`networks/testnet/current.json`](https://github.com/t3-foundry/tasra-releases/blob/main/networks/testnet/current.json),
+which names `deployments/tasra-fuji-v1.json` and carries its `sha256`. Resolve the
+manifest path relative to `networks/testnet/` and read both files from the same
+reviewed repository commit. Preserve the exact JSON bytes and record the revision
+and checksum with the application. Network records are updated by commit, separately
+from the CLI binary release assets.
 
-The handoff must provide an active manifest and trusted checksum, compatible SDK/CLI
-versions, RPC and service endpoints, funding instructions, credential enrollment,
-rule-provisioning instructions, revocation timing, and a developer-support contact.
-Obtain these from your existing deployment operator until the public records exist.
+Use `parsePinnedNetworkManifest` and `addressBookFromManifest`; the complete
+bootstrap is in [tasra-chain](../skills/tasra-chain/SKILL.md#public-deployment-manifest).
+Use `NETWORKS.testnet.rpcUrl` for the public RPC or supply your own Fuji RPC.
+The manifest publishes verifier-agent, relayer and explorer URLs in `services[]`;
+keeper and verifier URLs are discovered from chain. Do not invent missing endpoints.
+
+An active manifest establishes deployment configuration, not completed live
+acceptance. Credential enrollment, a funded account/slot, rule provisioning,
+compatible service versions, revocation timing and support instructions are separate
+prerequisites. Obtain any missing inputs from the deployment operator; report the
+specific blocked operation instead of treating the whole network as unpublished.
 
 ## Offline first result
 

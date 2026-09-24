@@ -19,11 +19,22 @@ master key that an exportable session has already obtained.
 
 ## Which deployment are you on?
 
-The SDK does not ship or host a network. The public testnet handoff will be
-published in `tasra-releases`; it is not available yet. See
-`docs/prerequisites.md` for the required manifest, trusted digest, enrollment,
-provisioning and support information. Until that handoff exists, use an existing
-operator-supported deployment or begin with the offline example below.
+The SDK does not ship or host a network. The canonical deployment records are in
+[t3-foundry/tasra-releases](https://github.com/t3-foundry/tasra-releases).
+For Avalanche Fuji (chain ID **43113**), start with
+[`networks/testnet/current.json`](https://github.com/t3-foundry/tasra-releases/blob/main/networks/testnet/current.json):
+its `manifest` path is relative to `networks/testnet/`, and its `sha256` pins the exact
+JSON bytes. The published deployment is
+[`deployments/tasra-fuji-v1.json`](https://github.com/t3-foundry/tasra-releases/blob/main/networks/testnet/deployments/tasra-fuji-v1.json).
+Read the pointer and record from the same reviewed commit; save that revision and
+checksum with your app. Follow `tasra-chain`, "Public deployment manifest", for
+the bootstrap. Do not copy contract addresses by hand.
+
+The manifest includes public service URLs; select the verifier agent by
+`services[].kind === 'verifier-agent'`. Keeper URLs come from the slot's on-chain
+assignment. An active manifest is not a credential, a funded slot, or proof that
+services are ready. See installed `node_modules/tasra-sdk/docs/prerequisites.md`
+for the remaining enrollment and provisioning inputs. Offline examples need none.
 
 `docs/DEVELOPER-EXPERIENCE.md` describes the intended public developer journey.
 Live acceptance must exercise real credential issuance, decryption and issuer

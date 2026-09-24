@@ -19,8 +19,11 @@ and needs `viem` installed.
 ## Inputs you need
 
 - `rpcUrl` and the chain id of the deployment.
-- An address book of the deployed contracts. Build it with
-  `addressBookFromEnv(process.env)` — env keys `KEY_REGISTRY`, `NODE_REGISTRY`,
+- An address book of the deployed contracts. For Fuji, obtain the pointer and
+  `tasra-fuji-v1.json` from [tasra-releases](https://github.com/t3-foundry/tasra-releases)
+  and use `parsePinnedNetworkManifest` → `addressBookFromManifest` from
+  `tasra-chain`; pass `manifest.chainId` (43113). For operator-provided configuration,
+  use `addressBookFromEnv(process.env)` — env keys `KEY_REGISTRY`, `NODE_REGISTRY`,
   `SETTLEMENT`, `TASRA_TOKEN`, `THRESHOLD_BEACON`, plus `BONDING_CURVE` and
   `EURC` for the funding steps below and `VERIFIER_SET_REGISTRY` for the
   committee path — or `addressBookFromObject({KeyRegistry: '0x…',
@@ -77,12 +80,14 @@ if (eligible.length < n) throw new Error(`${eligible.length} eligible keepers; n
 //    production genesis does — refuses createSlot with CommitRevealRequired() and takes only the
 //    two-phase call. One read tells you which, and costs nothing:
 const oneShot = !(await chain.readers.keyRegistry.requiresCommitReveal())
-const {slotId, txHash, ruleSalt} = oneShot
+const created = oneShot
   ? await writer.createSlot({dcqlRule, k, n, mode: 'bls'})
   // Commits the parameters, then asks the accountants for a seed to reveal immediately.
   // Falls back to the beacon-epoch wait when no usable seed is available; onEpoch reports
   // that wait with NUMBERS, not bigints. Returns commitTx, revealTx, and seeded instead of txHash.
   : await writer.createSlotCommitReveal({dcqlRule, k, n, mode: 'bls', onEpoch: (cur, target) => console.log(`epoch ${cur}/${target}`)})
+const {slotId, ruleSalt} = created
+const txHash = 'txHash' in created ? created.txHash : created.revealTx
 // slotId and ruleSalt are 0x-hex strings.
 
 // ⚠⚠ 3b. PERSIST {slotId, ruleSalt} DURABLY, NOW — before the DKG poll, before anything.

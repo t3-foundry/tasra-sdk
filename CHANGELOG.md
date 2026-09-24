@@ -7,6 +7,14 @@ never does.
 
 ## [Unreleased]
 
+### Fixed
+
+- Point skills and onboarding docs to the published Fuji deployment pointer,
+  manifest checksum and service URLs in `t3-foundry/tasra-releases`; document
+  bootstrap from a pinned repository commit.
+- Narrow slot-creation results before reading the transaction hash in the skill's
+  direct/commit-reveal example.
+
 ## [0.2.2] — 2026-09-23
 
 ### Fixed

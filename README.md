@@ -83,8 +83,11 @@ npm install --save-dev tsx
 npx tsx node_modules/tasra-sdk/examples/getting-started.ts
 ```
 
-Use your deployment's onboarding records for the manifest/checksum, enrollment,
-funding, rule-provisioning instructions, compatible versions, and support contact.
+For Fuji (43113), get the manifest and checksum from
+[tasra-releases](https://github.com/t3-foundry/tasra-releases):
+`networks/testnet/current.json` points to `deployments/tasra-fuji-v1.json`.
+Pin both files to the same reviewed commit. Obtain enrollment, funding,
+rule-provisioning instructions, compatible versions, and support from the deployment.
 [Full prerequisites and configuration](docs/prerequisites.md).
 
 Slot creation is an **operator setup** example (`examples/provision-slot.ts`),

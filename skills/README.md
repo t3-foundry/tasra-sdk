@@ -54,3 +54,8 @@ from `node_modules/tasra-sdk/dist/**/*.d.ts`.
 [developer handoff](../docs/DEVELOPER-EXPERIENCE.md) is the whole journey against
 deployed services. Report diagnostics, live decryption and issuer revocation
 separately; never count a missing prerequisite as success.
+
+Deployment records live in [tasra-releases](https://github.com/t3-foundry/tasra-releases),
+not the npm package. Fuji's `networks/testnet/current.json` points to
+`deployments/tasra-fuji-v1.json` and supplies its checksum. Use `tasra-chain` to
+bootstrap from one reviewed repository revision, then discover the slot's keepers.

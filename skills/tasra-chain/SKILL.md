@@ -1,6 +1,6 @@
 ---
 name: tasra-chain
-description: Read a Tasra deployment from chain with tasra-sdk/chain — address books (addressBookFromEnv/Object/Broadcast), the viem read client (createTasraChainClient) and its typed readers, windowed event decoding, on-chain discovery of a slot's keepers and the verifier directory, live node/verifier info, and the slot-driven client createTasraSlotClient. Use for "read the registry", "which nodes hold my slot", "decode events", "explorer", "addressBook", "rewriteUrl", "NETWORKS".
+description: Bootstrap a Tasra deployment from tasra-releases and its pinned Fuji manifest, then use tasra-sdk/chain for address books, typed chain reads, events, keeper/verifier discovery, and createTasraSlotClient. Use for "Fuji", "testnet manifest", "tasra-releases", "read the registry", "which nodes hold my slot", "decode events", "explorer", "addressBook", "rewriteUrl", "NETWORKS".
 metadata:
   package: tasra-sdk
   sources:
@@ -21,8 +21,60 @@ A manifest is the record of a deployment — every contract, its address, its ru
 code hash and its proxy implementation. Configuring from one means no address is ever
 copied by hand, and nothing loads that does not match its pin.
 
+Canonical source: [t3-foundry/tasra-releases](https://github.com/t3-foundry/tasra-releases).
+Fuji's [current pointer](https://github.com/t3-foundry/tasra-releases/blob/main/networks/testnet/current.json)
+names `deployments/tasra-fuji-v1.json` and supplies `sha256`. Resolve that path
+relative to `networks/testnet/`, not the repository root. Network records are
+versioned by repository commit, independently of CLI binary release assets.
+
+For an application, choose a reviewed commit from that repository and set
+`TASRA_RELEASES_REF` to its full 40-character SHA. Fetch both files at that revision,
+check HTTP status, and pass the original text to the parser; reserializing JSON
+changes its digest. A trusted local checkout of the same revision works too.
+The pointer's checksum protects the record only when you trust its source; hashing
+an arbitrary download yourself does not establish authenticity.
+
+Complete Node bootstrap (`npm install tasra-sdk viem`):
+
 ```ts
-import {parsePinnedNetworkManifest, addressBookFromManifest, observeNetworkManifest} from 'tasra-sdk/chain'
+import {
+  parsePinnedNetworkManifest, addressBookFromManifest, createTasraChainClient,
+  observeNetworkManifest, NETWORKS,
+} from 'tasra-sdk/chain'
+
+const revision = process.env.TASRA_RELEASES_REF
+if (!revision || !/^[a-f0-9]{40}$/.test(revision)) throw new Error('Set TASRA_RELEASES_REF to a reviewed release-repository commit')
+const base = `https://raw.githubusercontent.com/t3-foundry/tasra-releases/${revision}/networks/testnet/`
+async function readText(url: string) {
+  const response = await fetch(url, {signal: AbortSignal.timeout(15_000)})
+  if (!response.ok) throw new Error(`Release download failed: HTTP ${response.status}`)
+  return response.text()
+}
+const pointer = JSON.parse(await readText(`${base}current.json`))
+if (pointer.schemaVersion !== 1 || pointer.network !== 'testnet' ||
+    pointer.chainId !== 43113 || pointer.status !== 'active' ||
+    typeof pointer.manifest !== 'string' || !/^deployments\/[a-z0-9.-]+\.json$/.test(pointer.manifest)) {
+  throw new Error('Expected an active Fuji deployment pointer')
+}
+const manifest = parsePinnedNetworkManifest(await readText(`${base}${pointer.manifest}`), pointer.sha256)
+if (manifest.chainId !== pointer.chainId || manifest.network !== pointer.network || manifest.status !== pointer.status) {
+  throw new Error('Pointer/manifest mismatch')
+}
+const addresses = addressBookFromManifest(manifest)
+const rpcUrl = process.env.KK_RPC_URL ?? NETWORKS[manifest.network].rpcUrl
+const chain = createTasraChainClient({rpcUrl, addresses, chainId: manifest.chainId})
+const verifierAgentUrl = manifest.services.find(s => s.kind === 'verifier-agent')?.url
+const observation = await observeNetworkManifest(manifest, rpcUrl)
+if (!observation.matches) throw new Error('Deployment code does not match the pinned manifest')
+```
+
+To use a previously downloaded record with the SDK's live examples, set
+`KK_MANIFEST_FILE`, `KK_MANIFEST_SHA256` (the pointer's trusted digest), and
+`KK_RPC_URL`. The equivalent local-file setup is:
+
+```ts
+import {readFileSync} from 'node:fs'
+import {parsePinnedNetworkManifest, addressBookFromManifest, createTasraChainClient, observeNetworkManifest} from 'tasra-sdk/chain'
 
 const manifest  = parsePinnedNetworkManifest(readFileSync(path, 'utf8'), expectedSha256)
 const addresses = addressBookFromManifest(manifest)
@@ -40,10 +92,13 @@ point: a file that does not hash to it throws
 - `observeNetworkManifest` compares finalized runtime code and proxy implementations
   with the record. It certifies **code identity only** — not service readiness,
   governance wiring or audit quality.
-- **A manifest records contracts, not endpoints or secrets.** `services[]` is often
-  empty (a manifest generated from a deployment broadcast has no service data), so
-  keeper, verifier-agent and RPC URLs still come from the operator — as do every key
-  and token. A dev deployment's mock EURC is usually absent too, so `mintMockEurc`
+- **Read published endpoints from `services[]`.** Fuji's record includes
+  `verifier-agent`, `relayer`, and `explorer` entries. The RPC comes from
+  `NETWORKS[manifest.network].rpcUrl` or an explicit override; discover keepers
+  and verifiers on-chain. Other records may have no services: report the missing
+  endpoint rather than inventing one. Service URLs do not themselves establish a
+  ServiceRegistry approval (see `tasra-create-slot`, "Gas: who pays").
+  Keys and tokens are never in the manifest. A dev deployment's mock EURC is usually absent too, so `mintMockEurc`
   needs its address from elsewhere while `BondingCurve` reads fine from the book.
 - Regenerate it whenever the deployment changes: the addresses move and the old digest
   stops verifying, which is the behaviour you want.

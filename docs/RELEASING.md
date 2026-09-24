@@ -14,7 +14,8 @@ of it.
   [CONTRIBUTING.md](../CONTRIBUTING.md#conformance-vectors).
 - `npm run verify:consumers` passes after `npx playwright install chromium firefox webkit`.
 - A live acceptance report for this SDK revision and deployment is recorded (below).
-  The public-testnet report is pending until `tasra-releases` publishes its handoff.
+  Fuji records are in [tasra-releases](https://github.com/t3-foundry/tasra-releases);
+  their publication does not substitute for this SDK revision's live report.
 - `skills/*/SKILL.md` still match the API. This is a MANUAL check — nothing enforces
   it — so grep the skills for anything you renamed or removed this cycle.
 - `CHANGELOG.md` has everything for this version under `## [Unreleased]`, grouped by
@@ -92,8 +93,9 @@ is fixed by publishing the next patch, not by removing it.
 
 ## Live acceptance
 
-**Pending for public testnet:** `tasra-releases` has not published its deployment
-handoff. Do not mark a release live-verified until real reports exist. Local unit tests,
+**Require evidence for public testnet:** obtain the pinned Fuji deployment record
+from [tasra-releases](https://github.com/t3-foundry/tasra-releases).
+Do not mark a release live-verified until real reports exist. Local unit tests,
 conformance vectors, and browser checks are not substitutes.
 
 Run from a clean, committed checkout against dedicated, provisioned non-exportable

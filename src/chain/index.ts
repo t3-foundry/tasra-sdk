@@ -65,6 +65,11 @@ export {truncateHex, formatUnits, formatBps, formatWad} from './format.js'
 // on-chain `KeySlot.ruleCommitment` and a candidate rule, and the plaintext must
 // never leave the client. Without it here the package `exports` map makes it unreachable.
 export {createTasraWriteClient, generateClientKey, ruleCommitment, verifyRuleCommitment} from './write.js'
+// Creator-authorised rule provisioning: the step that makes a created slot USABLE.
+// Without it a caller can create a slot and never deliver its rule, which needs an
+// operator secret on the keeper's admin route.
+export {provisionRule, provisionRuleTypedData, PROVISION_RULE_ACTION} from './provisionRule.js'
+export type {ProvisionRuleArgs, ProvisionRuleResult, KeeperProvisionResult} from './provisionRule.js'
 export type {
   CreateSlotArgs,
   CommitRevealOptions,

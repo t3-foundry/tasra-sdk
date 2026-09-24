@@ -21,9 +21,8 @@ import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {createPublicClient, http, type Hex} from 'viem'
 import {keyRegistryAbi} from '../../src/chain/abis/keyRegistry.ts'
-import {loadFleetConfig} from '../fleet/_fleet.ts'
 import {explorerRpcUrl, fleetChain} from './_explorerRpc.ts'
-import {banner, chainEnvPath, explorerDir, have, log, networkDir, runStep, sh, type StepResult} from './_run.ts'
+import {banner, chainEnvPath, explorerDir, fleetConfig, have, log, networkDir, runStep, sh, type StepResult} from './_run.ts'
 
 const FLEET_NETWORK = process.env.KK_FLEET_NETWORK ?? 'keykeeper-swarm_default'
 const ACCOUNTANT_URLS = process.env.KK_ACCOUNTANT_URLS ?? '' // accountant is a polling daemon (no HTTP listener)
@@ -76,7 +75,9 @@ async function waitHealthy(timeoutMs = 180_000): Promise<{ok: boolean; detail: s
   const deadline = Date.now() + timeoutMs
   let detail = ''
   while (Date.now() < deadline) {
-    const cfg = loadFleetConfig() // re-read each loop: chain.env appears during provisioning
+    // fleetConfig() republishes chain.env into process.env first — see _run.ts. Without that
+    // the SDK's env-driven config returns empty values and the gate blames the fleet.
+    const cfg = fleetConfig()
     const node = cfg.nodeUrls[0] ? await probe(`${cfg.nodeUrls[0]}/readyz`) : null
     const ver = cfg.verifierUrls[0] ? await probe(`${cfg.verifierUrls[0]}/health`) : null
     const exp = await probe(`${cfg.explorerApi}/overview`)

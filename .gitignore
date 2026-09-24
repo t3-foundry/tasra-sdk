@@ -13,3 +13,8 @@ coverage/
 
 # Private local development state and generated evidence
 .tasra/
+
+# The verify harness writes its consolidated report here on every run. Untracked-but-not-ignored
+# dirties the tree, and certify's source snapshot is `git status --porcelain` UNSCOPED — it would
+# stamp an otherwise clean run `dirty-source=1` / PARTIAL VALIDATION.
+/test/verify/out/

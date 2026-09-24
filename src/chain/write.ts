@@ -40,6 +40,19 @@ export type {RelayReceipt} from './registeredRelay.js'
 import {canonicalize, isOid4vpRule} from '../auth/oid4vp.js'
 import {TasraError} from '../errors.js'
 import {keyRegistryAbi} from './abis/keyRegistry.js'
+import {nodeRegistryAbi} from './abis/nodeRegistry.js'
+
+/**
+ * Would an UNTAGGED committee draw seat something that is not a keeper?
+ *
+ * Exported and pure so the decision is testable without a chain — the reads that feed it are
+ * the only part that needs one. `tagged === 0` means the deployment does not use the tag at
+ * all, so there is nothing to advise; `tagged >= active` means every active operator is a
+ * keeper and an untagged draw is correct. Only a MIX is a trap.
+ */
+export function untaggedDrawSeatsNonKeepers(active: bigint, tagged: bigint): boolean {
+  return tagged > 0n && tagged < active
+}
 import {settlementAbi} from './abis/settlement.js'
 import {tasraTokenAbi} from './abis/tasraToken.js'
 import {thresholdRandomBeaconAbi} from './abis/thresholdRandomBeacon.js'
@@ -496,6 +509,55 @@ export function createTasraWriteClient(cfg: WriteClientConfig): TasraWriteClient
     throw e
   }
 
+  /**
+   * Resolve the committee-draw tags, refusing an explicitly EMPTY list on a deployment whose
+   * active set mixes roles.
+   *
+   * ⚠ An operator is active whether it runs a keeper, an accountant or a verifier, and a draw
+   * with no tags walks ALL of them. Seating a non-keeper is not recoverable: the slot is
+   * created and paid for, its DKG never runs, and the only symptom is a 404 when its rule is
+   * provisioned — by which point `reshare` cannot repair it either, because that needs a
+   * published key the DKG never produced. Observed on Fuji: 15 active, 9 keeper-tagged.
+   *
+   * The DEFAULT here is `['keykeeper']`, so this only guards a caller who passed `tags: []`
+   * deliberately. The CLI needed the same gate for the opposite reason — there, untagged was
+   * the default. Two entry points into one contract behaviour; both have to refuse it.
+   */
+  async function resolveDrawTags(tags: string[] | undefined): Promise<Hex[]> {
+    const chosen = tags ?? ['keykeeper']
+    if (chosen.length > 0) return chosen.map(t => keccak256(toHex(t)))
+    const keyRegistry = requireAddress(addr, 'KeyRegistry')
+    const nodeRegistry =
+      addr.NodeRegistry ??
+      (await pub.readContract({address: keyRegistry, abi: keyRegistryAbi, functionName: 'nodeRegistry'}) as Address)
+    // Two reads, no per-operator loop: the same cost at 15 operators or 10,000. Only the
+    // candidate COUNT is consulted, which does not depend on the draw seed — so this never
+    // has to guess which committee the real draw will pick.
+    const active = (await pub.readContract({
+      address: nodeRegistry, abi: nodeRegistryAbi, functionName: 'activeCount',
+    })) as bigint
+    const keeperTag = keccak256(toHex('keykeeper'))
+    const probe = (await pub.readContract({
+      address: nodeRegistry,
+      abi: nodeRegistryAbi,
+      functionName: 'drawActive',
+      // minStake 0: this counts TAG MEMBERSHIP, not who could be drawn today. Folding stake
+      // in would turn a funding problem into a message about tags.
+      args: [[keeperTag], 0n, 1, `0x${'00'.repeat(32)}` as Hex],
+    })) as readonly [readonly Address[], bigint, bigint]
+    const tagged = probe[1]
+    if (untaggedDrawSeatsNonKeepers(active, tagged)) {
+      throw new Error(
+        `createSlot: this deployment has ${active} active operators but only ${tagged} carry the ` +
+          '`keykeeper` tag, so a draw with no tags can seat an accountant or a verifier — neither ' +
+          'of which serves a key slot. Drop `tags: []` (the default is ["keykeeper"]).\n' +
+          'Refused before sending because the mistake is not recoverable: the slot would be ' +
+          'created and paid for, and its DKG would never run.',
+      )
+    }
+    return []
+  }
+
   /** Self-sign createKeySlotFiltered. Returns the slot id once the tx is mined. */
   async function createSlot(args: CreateSlotArgs): Promise<{slotId: Hex; txHash: Hex; ruleSalt: Hex; relay?: RelayReceipt}> {
     const slotId = args.slotId ?? random32()
@@ -504,7 +566,7 @@ export function createTasraWriteClient(cfg: WriteClientConfig): TasraWriteClient
     // Named `…Hash` only because `ruleCommitment` is the function that derives it;
     // this is the SALTED value the contract stores as `KeySlot.ruleCommitment`.
     const ruleCommitmentHash = ruleCommitment(ruleSalt, args.dcqlRule)
-    const tags = (args.tags ?? ['keykeeper']).map(t => keccak256(toHex(t)))
+    const tags = await resolveDrawTags(args.tags)
     const mode = modeIndex(args.mode)
     const auth = authTypeIndex(args.authType)
     // The `…WithPolicy` entry point is used ONLY when there is a policy: a slot with
@@ -547,7 +609,7 @@ export function createTasraWriteClient(cfg: WriteClientConfig): TasraWriteClient
     const salt = args.salt ?? random32()
     const ruleSalt = args.ruleSalt ?? random32()
     const ruleCommitmentHash = ruleCommitment(ruleSalt, args.dcqlRule)
-    const tags = (args.tags ?? ['keykeeper']).map(t => keccak256(toHex(t)))
+    const tags = await resolveDrawTags(args.tags)
     const mode = modeIndex(args.mode)
     // ⚠ `auth` is NOT an input to `computeCommitment` — the commitment deliberately
     // does not cover it, so it is passed at the REVEAL only.

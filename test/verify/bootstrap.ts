@@ -23,7 +23,6 @@ import {Suite, bytesEq, metric} from '../fleet/_assert.ts'
 import {
   discoverCommittee,
   gate,
-  loadFleetConfig,
   mintLocalJwt,
   provisionRule,
 } from '../fleet/_fleet.ts'
@@ -34,12 +33,13 @@ import {createTasraWriteClient, generateClientKey} from '../../src/chain/write.t
 import {bondingCurveAbi} from '../../src/chain/abis/bondingCurve.ts'
 import {mockEurcAbi} from '../../src/chain/abis/mockEurc.ts'
 import {ensureGas} from './_faucet.ts'
+import {fleetConfig} from './_run.ts'
 import {fetchMpk} from '../../src/keys/node-client.ts'
 import {type BlsPeer} from '../../src/decryption/client.ts'
 import {encryptEnvelope, fromBytes, toBytes} from '../../src/crypto/envelope.ts'
 import {hexToBytes} from '../../src/crypto/hex.ts'
 
-const cfg = loadFleetConfig()
+const cfg = fleetConfig()
 const s = new Suite('verify: real economic onboarding (account → faucet → buy TSRA → fund slot → operate)')
 
 if (!(await gate(s, cfg))) {

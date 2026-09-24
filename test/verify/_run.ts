@@ -22,66 +22,14 @@ export const explorerDir = process.env.KK_EXPLORER_DIR ?? resolve(SIBLING_ORG, '
 export const outDir = resolve(here, 'out')
 
 /**
- * Keys the CALLER set, captured before anything hydrates. certify's values must win over the
- * file; everything else is refreshed from it on every read.
+ * The fleet config, which republishes `chain.env` into the environment itself (see
+ * `test/fleet/_fleet.ts::hydrateFleetEnv`). Re-exported under the harness's own name because
+ * every read here happens mid-provisioning, when the file may only just have appeared.
  */
-const CALLER_ENV = new Set(Object.keys(process.env))
+export const fleetConfig = loadFleetConfig
 
-/**
- * Publish the fleet's `chain.env` into `process.env` so the SDK's fleet config can see it.
- *
- * ⚠ THIS BRIDGE IS LOAD-BEARING AND ITS ABSENCE IS SILENT. The harness was written against a
- * fleet config that READ chain.env itself ("re-read each loop: chain.env appears during
- * provisioning"). This SDK's `loadFleetConfig` takes TASRA_* environment variables instead and
- * never touches the file, so without this every fleet-derived value — slot id, rule salt,
- * deploy key, the whole address book — comes back EMPTY while the health probes still answer
- * 200 on their localhost defaults. The gate then reports `slotKeyAnchored=false` and looks like
- * a fleet that failed to key a slot, not like a config that was never populated.
- *
- * Re-runs on every call because the file is written DURING provisioning: a value absent on one
- * pass is present on the next. Keys the caller set are never overwritten.
- */
-export function hydrateFleetEnv(): void {
-  if (!existsSync(chainEnvPath)) return
-  const text = readFileSync(chainEnvPath, 'utf8')
-  // chain.env's own names feed `addressBookFromEnv` (KEY_REGISTRY, NODE_REGISTRY, …); the
-  // aliases feed `loadFleetConfig`, which reads TASRA_*. Both come from the same line.
-  const alias: Record<string, string> = {
-    DEMO_SLOT_ID: 'TASRA_SLOT_ID',
-    GOVERNANCE_SLOT_ID: 'TASRA_GOVERNANCE_SLOT_ID',
-    CHAIN_RPC: 'TASRA_RPC_URL',
-    CHAIN_ID: 'TASRA_CHAIN_ID',
-    DEMO_RULE_SALT: 'TASRA_RULE_SALT',
-    GOVERNANCE_DCQL_RULE: 'TASRA_GOVERNANCE_RULE',
-    GOVERNANCE_RULE_SALT: 'TASRA_GOVERNANCE_RULE_SALT',
-    DEPLOY_PK: 'TASRA_DEPLOY_PK',
-    DEPLOY_ADDR: 'TASRA_DEPLOY_ADDR',
-  }
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim()
-    if (!line || line.startsWith('#')) continue
-    const eq = line.indexOf('=')
-    if (eq < 0) continue
-    const k = line.slice(0, eq).replace(/^export\s+/, '').trim()
-    let v = line.slice(eq + 1).trim()
-    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1)
-    if (!CALLER_ENV.has(k)) process.env[k] = v
-    const a = alias[k]
-    if (a && !CALLER_ENV.has(a)) process.env[a] = v
-  }
-}
-
-/** `loadFleetConfig`, with the fleet's chain.env published first. Use this in the harness. */
-export function fleetConfig(): FleetConfig {
-  hydrateFleetEnv()
-  return loadFleetConfig()
-}
-
-// ⚠ THE HARNESS DERIVES THIS ITSELF. The SDK's FleetConfig moved to a TASRA_* env-var model and
-// no longer reads the fleet's chain.env FILE, so  is gone. Only
-// this harness needs the file (it drives fleet bring-up, which the SDK proper never does), so the
-// path lives here rather than being pushed back into the SDK's config. certify passes KK_CHAIN_ENV.
-export const chainEnvPath = process.env.KK_CHAIN_ENV ?? resolve(networkDir, 'lab', 'fleet', 'credentials', 'chain.env')
+// `chainEnvPath` is defined by the fleet config and re-exported here for the harness.
+export {chainEnvPath} from '../fleet/_fleet.ts'
 
 export interface Metric {
   name: string

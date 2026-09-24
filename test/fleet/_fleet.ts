@@ -7,6 +7,9 @@
 // Addresses are read straight out of the environment by addressBookFromEnv, so
 // TASRA_KEY_REGISTRY, TASRA_SETTLEMENT and friends work the same way.
 
+import {existsSync, readFileSync} from 'node:fs'
+import {dirname, resolve} from 'node:path'
+import {fileURLToPath} from 'node:url'
 import {ed25519} from '@noble/curves/ed25519'
 import {addressBookFromEnv, type AddressBook} from '../../src/chain/deployments.ts'
 import {verifyPresentation, verifyVpJwt, type IssuedToken} from '../../src/auth/verifier.ts'
@@ -95,7 +98,66 @@ function environment(): Record<string, string> {
  * default here surfaces much later as an unrelated-looking authorization failure.
  * Suites assert the preconditions they need and name the variable that is missing.
  */
+/** Keys the CALLER set, captured at import — these always win over the file. */
+const CALLER_ENV = new Set(Object.keys(process.env))
+
+/**
+ * The fleet's `chain.env`, when there is one. Only a LOCAL fleet has this file; a third party
+ * pointing the SDK at a real deployment has no such thing, which is why the config below reads
+ * environment variables and this is a bridge rather than the primary source.
+ */
+export const chainEnvPath =
+  process.env.KK_CHAIN_ENV ??
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '..', '..', '..', '..', 'managination', 'keykeeper-network',
+    'lab', 'fleet', 'credentials', 'chain.env',
+  )
+
+/**
+ * Publish `chain.env` into `process.env` so this config can see a local fleet.
+ *
+ * ⚠⚠ WITHOUT THIS, EVERY FLEET-DERIVED VALUE IS SILENTLY EMPTY and the failure lands somewhere
+ * else entirely. A cert run showed it twice over: the verify harness reported
+ * `slotKeyAnchored=false` against a fleet whose slot WAS anchored (empty `slotId`), and six
+ * scenarios died in `createWalletSlot` with "pass either privateKey or wallet" (empty
+ * `deployPk`). The endpoints meanwhile answered 200 on their localhost DEFAULTS, so a config
+ * that was never populated reads as a broken fleet.
+ *
+ * Re-runs on every call because the file is written DURING fleet provisioning: a value absent
+ * on one read is present on the next. A key the caller set is never overwritten, so certify's
+ * explicit environment still wins.
+ */
+export function hydrateFleetEnv(): void {
+  if (!existsSync(chainEnvPath)) return
+  // chain.env's own names feed `addressBookFromEnv`; the aliases feed the TASRA_* reads below.
+  const alias: Record<string, string> = {
+    DEMO_SLOT_ID: 'TASRA_SLOT_ID',
+    GOVERNANCE_SLOT_ID: 'TASRA_GOVERNANCE_SLOT_ID',
+    CHAIN_RPC: 'TASRA_RPC_URL',
+    CHAIN_ID: 'TASRA_CHAIN_ID',
+    DEMO_RULE_SALT: 'TASRA_RULE_SALT',
+    GOVERNANCE_DCQL_RULE: 'TASRA_GOVERNANCE_RULE',
+    GOVERNANCE_RULE_SALT: 'TASRA_GOVERNANCE_RULE_SALT',
+    DEPLOY_PK: 'TASRA_DEPLOY_PK',
+    DEPLOY_ADDR: 'TASRA_DEPLOY_ADDR',
+  }
+  for (const line of readFileSync(chainEnvPath, 'utf8').split(/\r?\n/)) {
+    const t = line.trim()
+    if (!t || t.startsWith('#')) continue
+    const eq = t.indexOf('=')
+    if (eq < 0) continue
+    const k = t.slice(0, eq).replace(/^export\s+/, '').trim()
+    let v = t.slice(eq + 1).trim()
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1)
+    if (!CALLER_ENV.has(k)) process.env[k] = v
+    const a = alias[k]
+    if (a && !CALLER_ENV.has(a)) process.env[a] = v
+  }
+}
+
 export function loadFleetConfig(): FleetConfig {
+  hydrateFleetEnv()
   const raw = environment()
   return {
     nodeUrls: splitUrls(process.env.TASRA_NODE_URLS, DEFAULT_NODES),

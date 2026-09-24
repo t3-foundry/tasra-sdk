@@ -157,6 +157,27 @@ export function hydrateFleetEnv(): void {
     const aliased = RENAMED[k] ?? (k.startsWith('TASRA_') ? k : `TASRA_${k}`)
     if (aliased !== k && !CALLER_ENV.has(aliased)) process.env[aliased] = v
   }
+
+  // Identities the LOCAL FLEET fixes but never writes to chain.env.
+  //
+  // The demo issuer is a fixed keypair whose public half is baked into the fleet's verifier as a
+  // `[[vc_trust_anchors]]` entry (AIct1Lf9…). It is a FIXTURE, not a secret: a wallet credential
+  // signed with any other key is refused by that anchor, so there is nothing to protect and
+  // nothing else that would work.
+  //
+  // ⚠ THIS BELONGS HERE, NOT IN THE CONFIG'S DEFAULTS. The config deliberately defaults
+  // deployment-identifying values to empty, because a wrong default surfaces much later as an
+  // unrelated-looking authorization failure. That rule is right and stays: these are applied
+  // ONLY when a local fleet's chain.env exists, so a caller pointing the SDK at a real
+  // deployment still gets nothing invented for it.
+  const fleetFixture: Record<string, string> = {
+    TASRA_ISSUER_KEY: 'UoHyiECxzBuy0vgXeAHcmqYqLUrnqS2-uzsxuPm9nFc',
+    TASRA_ISSUER_DID: 'did:web:hr.acmecorp.example',
+    TASRA_ADMIN_SECRET: 'demo-admin-secret-change-me',
+  }
+  for (const [k, v] of Object.entries(fleetFixture)) {
+    if (!CALLER_ENV.has(k) && !process.env[k]) process.env[k] = v
+  }
 }
 
 export function loadFleetConfig(): FleetConfig {

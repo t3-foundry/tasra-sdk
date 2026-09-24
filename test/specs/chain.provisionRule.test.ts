@@ -21,6 +21,7 @@ function fakeChain() {
 
 function signer(calls: unknown[] = []) {
   return {
+    address: '0x9999999999999999999999999999999999999999' as const,
     signTypedData: async (td: unknown) => {
       calls.push(td)
       return `0x${'ab'.repeat(65)}` as const
